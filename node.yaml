@@ -1,0 +1,306 @@
+
+
+---
+
+- name:
+  hosts: zabbix
+  gather_facts: false
+  #become: yes
+  #become_method: sudo
+  #user: smtauser
+  tasks:
+ #####################################################################################################      
+      - name: Add repository
+        yum_repository:
+                   name: MongoDBRepository
+                   description: mongod YUM repo
+                   baseurl: https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/3.4/x86_64/
+                   gpgcheck: yes
+                   enabled: yes
+                   gpgkey: https://www.mongodb.org/static/pgp/server-3.4.asc
+##################################################################################
+      - name:  Add repository epel repository
+        get_url:
+                url: https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+                dest: /
+                mode: 777
+      - name: install repo
+        command: rpm -ivh /epel-release-latest-7.noarch.rpm
+        ignore_errors: yes
+
+ ###############################################################################################################################################
+      - name: setup system 
+        yum:
+          update_cache: true     
+          name: "{{packages}}"
+        vars:
+          packages:
+                    #- epel-release
+                    - redis
+                    - rabbitmq-server
+                    - mongodb-org
+                    #- build-essential
+                    - ntp
+                    - wget
+                    - gcc 
+                    - gcc-c++
+                    - npm
+                    - python-pip
+                    - net-tools
+                    - unzip  
+#####################################################################################
+      - name: Remove file (delete file)
+        file:
+           path: /etc/rabbitmq/rabbitmq.config
+           state: absent
+      - name:
+        file:
+           path: /etc/rabbitmq/rabbitmq.config
+           state: touch       
+      - name:  rabbitmq config setup 
+        command: echo " " >  /etc/rabbitmq/rabbitmq.config
+      - name: setup  
+        lineinfile: 
+            path: /etc/rabbitmq/rabbitmq.config
+            line: '[ {rabbit, [{tcp_listeners, [{"0.0.0.0", 5673},'
+            create: yes
+      - lineinfile:
+            path: /etc/rabbitmq/rabbitmq.config
+            line: '{"::1", 5673}]},'
+      - lineinfile:
+            path: /etc/rabbitmq/rabbitmq.config
+            line:  '{vm_memory_high_watermark, 0.7}]}'
+      - lineinfile:
+            path: /etc/rabbitmq/rabbitmq.config
+            line: '].'
+###############################################################################################################
+      - name: Create a directory if it does not exist
+        file:
+            path: /etc/security/limits.d/99-mongodb-nproc.conf
+            state: touch
+            mode: '0755'
+      - name: setup mongo
+        lineinfile: 
+             path:  /etc/security/limits.d/99-mongodb-nproc.conf
+             line: mongod       soft        nproc        64000
+      - lineinfile:                
+             path:  /etc/security/limits.d/99-mongodb-nproc.conf
+             line: mongod       hard        nproc        64000
+      - lineinfile:                
+             path:  /etc/security/limits.d/99-mongodb-nproc.conf
+             line: mongod       soft        nproc        64000
+      - lineinfile:                
+             path:  /etc/security/limits.d/99-mongodb-nproc.conf
+             line: mongod       hard        nproc        64000
+#############################################################################################################################
+      - name: Commenting a line using the regualr expressions in Ansible.
+        replace:
+            path: /etc/redis.conf
+            #path: /etc/redis/redis.conf
+            regexp: '(.*save.*)'
+            replace: '#\1'
+      - name: Ansible delete file glob
+        replace:
+            path: /etc/redis.conf  #/etc/redis/redis.conf
+            regexp: '^#(.*unixsocket.*)'
+            replace: '\1'   
+      - name: setup redis       
+        lineinfile: 
+             path:  /etc/redis.conf
+             line: save 900 1    
+        lineinfile: 
+             path:  /etc/redis.conf
+             line: save 300 10
+        lineinfile: 
+             path:  /etc/redis.conf
+             line:  save 60 10000    
+###################################################################################################################
+
+      - name: Unarchive a file that is already on the remote machine
+        unarchive:
+            #src:  http://103.255.100.158/smtpscrtips/node_modules_files.tar.gz  
+            src: /sarv_modules.zip
+            dest: /usr/lib/
+            remote_src: yes
+   
+##################################################################################################################
+####################################################################################################################
+#####################################################################################
+      - name: Start all service
+        service:
+              name: "{{ item }}" 
+              state: started
+        with_items:
+                -  redis
+                -  rabbitmq-server
+                -  mongod
+ ################################################################################
+      - name: Enables the rabbitmq_management plugin
+        rabbitmq_plugin:
+            names: rabbitmq_management
+            state: enabled
+################################################################################
+      - rabbitmq_user:
+           user: noderabbit
+           password: mwePLxvHi0r11Q
+           vhost: /
+           tags: administrator
+           configure_priv: .*
+           read_priv: .*
+           write_priv: .*
+           state: present
+      - rabbitmq_user:
+           user: guest
+           state: absent
+##################################################################################################
+      - name: Unarchive a file that is already on the remote machine
+        unarchive:
+           src: http://nodejs.org/dist/v0.10.30/node-v0.10.30.tar.gz
+           dest: /
+           remote_src: yes
+      - name: install nodejs
+        command:  ./configure
+        args:
+             chdir: /node-v0.10.30
+      - make:  
+           chdir: /node-v0.10.30
+           target: install
+             ##########################################################################################################
+      - cron:
+           name: "node process"
+           minute: "*"
+           hour: "*"
+           day: "*"
+           weekday: "*"
+           month: "*"
+           user:  root
+           job:  "nohup /usr/bin/node  /usr/lib/sarv_modules/receiver_rmq/fileReceiver.js >>    /home/log/filereceiver.log  2>&1 &"
+           #job:  "nohup /usr/bin/node  /usr/lib/node_modules/receiver_rmq/fileReceiver.js >>    /home/log/filereceiver.log" 
+           ###################################################################################################        
+      - cron:
+           name: "sarv_websocket"
+           minute: "*"
+           hour: "*"
+           day: "*"
+           weekday: "*"
+           month: "*"
+           user:  root
+           job:  "nohup /usr/bin/node  /usr/lib/sarv_modules/sarv_websocket/index.js >>    /home/log/index.log  2>&1 &" 
+          # job:  "nohup /usr/bin/node  /usr/lib/node_modules/sarv_websocket/index.js >>    /home/log/index.log  2>&1 &" 
+
+           ######################################################################################################\
+      - cron: 
+           name: "reportSender_rmq.js"
+           minute: "*"
+           hour: "*"
+           day: "*"
+           weekday: "*"
+           month: "*"
+           user:  root
+           job:  "nohup /usr/bin/node /usr/lib/sarv_modules/data_process/reportSender_rmq.js >>    /home/log/reportSender.log  2>&1 &"
+           #job:  "nohup /usr/bin/node /usr/lib/node_modules/data_process/reportSender_rmq.js >>    /home/log/reportSender.log  2>&1 &"
+
+           #################################################################################################
+      - cron: 
+           name: "queue_process"
+           minute: "*"
+           hour: "*"
+           day: "*"
+           weekday: "*"
+           month: "*"
+           user:  root
+           job:  "nohup /usr/bin/node /usr/lib/sarv_modules/queue_process/sendParent_rmq.js >>    /home/log/SendParent.log  2>&1 &"
+           #job:  "nohup /usr/bin/node /usr/lib/node_modules/queue_process/sendParent_rmq.js >>    /home/log/SendParent.log  2>&1 &"
+
+           ####################################################################################################33
+      - cron: 
+           name: "mainHttpServer"
+           minute: "*"
+           hour: "*"
+           day: "*"
+           weekday: "*"
+           month: "*"
+           user:  root
+           job:  "nohup /usr/bin/node  /usr/lib/sarv_modules/mainHttpServer/index.js >>    /home/log/mainhttp.log  2>&1 &"
+           #job:  "nohup /usr/bin/node  /usr/lib/node_modules/mainHttpServer/index.js >>    /home/log/mainhttp.log  2>&1 &"
+
+
+           ##########################################################################################33
+      - name:
+        command:  pip install redis
+      ##################################################################################################
+      - name: Start all service
+        service:
+              name: "{{ item }}"
+              state: restarted
+        with_items:
+                -  redis
+                -  rabbitmq-server     
+                -  mongod
+      - name: make log  folder    
+        command: mkdir /home/log
+      - file: 
+          path: "{{directory}}"
+          state: directory
+        vars:
+          directory:
+                 - /home/sarvmta
+                 - /home/sarvmta/queue
+                 - /home/sarvmta/queue_processed
+                 - /home/sarvmta/queue_tmp
+      - name: get repo of centos 7
+        get_url:
+                  url: https://repo.zabbix.com/zabbix/3.0/rhel/7/x86_64/zabbix-release-3.0-1.el7.noarch.rpm
+                  dest: /
+                  mode: 0770 
+      - name: install repo 7
+        command: rpm -ivh /zabbix-release-3.0-1.el7.noarch.rpm
+      - name: enter zabbix server ip
+        lineinfile:
+             path: /etc/zabbix/zabbix_agentd.conf
+             regexp: 'ServerActive=127.0.0.1'
+             line: 'ServerActive=103.255.101.30'
+      - name: enter zabbix server ip
+        lineinfile:
+             path: /etc/zabbix/zabbix_agentd.conf
+             regexp: '#Server=127.0.0.1'
+             line: 'Server=103.255.101.30'             
+      - name: restart service
+        service: 
+                  name: zabbix-agent
+                  state: restarted
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
