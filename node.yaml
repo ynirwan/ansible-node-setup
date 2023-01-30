@@ -3,7 +3,7 @@
 ---
 
 - name:
-  hosts: zabbix
+  hosts: node
   gather_facts: false
   #become: yes
   #become_method: sudo
@@ -118,14 +118,11 @@
 
       - name: Unarchive a file that is already on the remote machine
         unarchive:
-            #src:  http://103.255.100.158/smtpscrtips/node_modules_files.tar.gz  
-            src: /sarv_modules.zip
+            src: /node_modules.zip
             dest: /usr/lib/
             remote_src: yes
    
 ##################################################################################################################
-####################################################################################################################
-#####################################################################################
       - name: Start all service
         service:
               name: "{{ item }}" 
@@ -174,19 +171,17 @@
            weekday: "*"
            month: "*"
            user:  root
-           job:  "nohup /usr/bin/node  /usr/lib/sarv_modules/receiver_rmq/fileReceiver.js >>    /home/log/filereceiver.log  2>&1 &"
-           #job:  "nohup /usr/bin/node  /usr/lib/node_modules/receiver_rmq/fileReceiver.js >>    /home/log/filereceiver.log" 
+           job:  "nohup /usr/bin/node  /usr/lib/node_modules/receiver_rmq/fileReceiver.js >>    /home/log/filereceiver.log" 
            ###################################################################################################        
       - cron:
-           name: "sarv_websocket"
+           name: "node_websocket"
            minute: "*"
            hour: "*"
            day: "*"
            weekday: "*"
            month: "*"
            user:  root
-           job:  "nohup /usr/bin/node  /usr/lib/sarv_modules/sarv_websocket/index.js >>    /home/log/index.log  2>&1 &" 
-          # job:  "nohup /usr/bin/node  /usr/lib/node_modules/sarv_websocket/index.js >>    /home/log/index.log  2>&1 &" 
+           job:  "nohup /usr/bin/node  /usr/lib/node_modules/node_websocket/index.js >>    /home/log/index.log  2>&1 &" 
 
            ######################################################################################################\
       - cron: 
@@ -197,8 +192,7 @@
            weekday: "*"
            month: "*"
            user:  root
-           job:  "nohup /usr/bin/node /usr/lib/sarv_modules/data_process/reportSender_rmq.js >>    /home/log/reportSender.log  2>&1 &"
-           #job:  "nohup /usr/bin/node /usr/lib/node_modules/data_process/reportSender_rmq.js >>    /home/log/reportSender.log  2>&1 &"
+           job:  "nohup /usr/bin/node /usr/lib/node_modules/data_process/reportSender_rmq.js >>    /home/log/reportSender.log  2>&1 &"
 
            #################################################################################################
       - cron: 
@@ -209,8 +203,7 @@
            weekday: "*"
            month: "*"
            user:  root
-           job:  "nohup /usr/bin/node /usr/lib/sarv_modules/queue_process/sendParent_rmq.js >>    /home/log/SendParent.log  2>&1 &"
-           #job:  "nohup /usr/bin/node /usr/lib/node_modules/queue_process/sendParent_rmq.js >>    /home/log/SendParent.log  2>&1 &"
+           job:  "nohup /usr/bin/node /usr/lib/node_modules/queue_process/sendParent_rmq.js >>    /home/log/SendParent.log  2>&1 &"
 
            ####################################################################################################33
       - cron: 
@@ -221,8 +214,7 @@
            weekday: "*"
            month: "*"
            user:  root
-           job:  "nohup /usr/bin/node  /usr/lib/sarv_modules/mainHttpServer/index.js >>    /home/log/mainhttp.log  2>&1 &"
-           #job:  "nohup /usr/bin/node  /usr/lib/node_modules/mainHttpServer/index.js >>    /home/log/mainhttp.log  2>&1 &"
+           job:  "nohup /usr/bin/node  /usr/lib/node_modules/mainHttpServer/index.js >>    /home/log/mainhttp.log  2>&1 &"
 
 
            ##########################################################################################33
@@ -244,10 +236,10 @@
           state: directory
         vars:
           directory:
-                 - /home/sarvmta
-                 - /home/sarvmta/queue
-                 - /home/sarvmta/queue_processed
-                 - /home/sarvmta/queue_tmp
+                 - /home/
+                 - /home/queue
+                 - /home/queue_processed
+                 - /home/queue_tmp
       - name: get repo of centos 7
         get_url:
                   url: https://repo.zabbix.com/zabbix/3.0/rhel/7/x86_64/zabbix-release-3.0-1.el7.noarch.rpm
@@ -270,35 +262,6 @@
                   name: zabbix-agent
                   state: restarted
         
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
